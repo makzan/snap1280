@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Snap1280</title>
+  <meta name="description" content="Auto-save JPEG · longest side 1280px. Preview matches the saved photo." />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <style>
+:root {
+  color-scheme: dark;
+  --bg: #0b0d10;
+  --panel: #14181f;
+  --border: #262c36;
+  --text: #e8edf5;
+  --muted: #8b95a8;
+  --accent: #5b9fff;
+  --accent-dim: #3a6fbf;
+  --danger: #ff6b7a;
+  --ok: #4ade80;
+  --radius: 14px;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.wrap {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 20px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.tagline { color: var(--muted); font-size: 0.95rem; }
+
+.stage-slot {
+  display: flex;
+  justify-content: center;
+  min-height: 240px;
+}
+
+.stage {
+  position: relative;
+  width: min(100%, calc(70dvh * var(--frame-aspect, 0.75)));
+  aspect-ratio: var(--frame-aspect, 0.75);
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+video,
+.placeholder {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+video {
+  object-fit: contain;
+  background: #000;
+}
+
+video.mirror { transform: scaleX(-1); }
+
+.placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  text-align: center;
+  padding: 24px;
+  background: var(--panel);
+}
+
+.placeholder[hidden],
+video[hidden] { display: none; }
+
+.flash {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+}
+
+.flash.on { opacity: 0.85; }
+
+.badge {
+  position: absolute;
+  top: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.badge.left { left: 12px; }
+.badge.right { right: 12px; font-variant-numeric: tabular-nums; }
+.badge.live { color: var(--ok); }
+.badge.denied,
+.badge.insecure { color: var(--danger); }
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+  align-items: center;
+}
+
+button,
+.file-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: #1c2330;
+  color: var(--text);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+button.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: #061018;
+}
+
+.file-btn { display: inline-flex; align-items: center; }
+#file { display: none; }
+
+.toast {
+  margin-top: 12px;
+  min-height: 1.25rem;
+  color: var(--ok);
+  font-size: 0.9rem;
+}
+
+.toast.err { color: var(--danger); }
+
+.shots {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.shot {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #000;
+}
+
+.shot .meta {
+  display: block;
+  padding: 8px 10px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+footer {
+  margin-top: 32px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+a { color: var(--accent); }
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Snap1280</h1>
+        <p class="tagline">Auto-save JPEG · longest side 1280px</p>
+      </div>
+    </header>
+
+    <div class="stage-slot">
+      <div class="stage" id="stage">
+        <div class="placeholder" id="placeholder">
+          <div>
+            <div>Camera preview</div>
+            <div>Allow camera, or upload an image</div>
+          </div>
+        </div>
+        <video id="video" playsinline muted autoplay hidden></video>
+        <div class="flash" id="flash"></div>
+        <div class="badge left" id="status">Idle</div>
+        <div class="badge right" id="size" hidden></div>
+      </div>
+    </div>
+
+    <div class="bar">
+      <button type="button" class="primary" id="btnCapture" disabled>Capture</button>
+      <button type="button" id="btnFlip" disabled>Flip camera</button>
+      <button type="button" id="btnStart">Start camera</button>
+      <label class="file-btn" for="file">Upload image</label>
+      <input type="file" id="file" accept="image/*" />
+    </div>
+    <div class="toast" id="toast" aria-live="polite"></div>
+    <div class="shots" id="shots"></div>
+    <footer>
+      Preview frame matches the saved JPEG.
+      <a href="https://github.com/makzan/snap1280">Source</a>
+    </footer>
+  </div>
+  <script>
+const MAX_EDGE = 1280;
+const JPEG_QUALITY = 0.9;
+
+function fitMaxEdge(width, height, maxEdge = MAX_EDGE) {
+  if (width <= 0 || height <= 0) throw new Error("Invalid image size");
+  const longest = Math.max(width, height);
+  if (longest <= maxEdge) return { width, height };
+  const scale = maxEdge / longest;
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+}
+
+function photoFilename(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `snap1280-${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}.jpg`;
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function canvasToJpeg(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error("Could not encode JPEG"))),
+      "image/jpeg",
+      JPEG_QUALITY,
+    );
+  });
+}
+
+async function encodeFitted(source, sourceWidth, sourceHeight) {
+  const { width, height } = fitMaxEdge(sourceWidth, sourceHeight);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas is unavailable");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(source, 0, 0, sourceWidth, sourceHeight, 0, 0, width, height);
+  const blob = await canvasToJpeg(canvas);
+  return { blob, width, height, filename: photoFilename() };
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  return url;
+}
+
+const MAX_SHOTS = 8;
+
+const stage = document.getElementById("stage");
+const video = document.getElementById("video");
+const placeholder = document.getElementById("placeholder");
+const statusEl = document.getElementById("status");
+const sizeEl = document.getElementById("size");
+const flashEl = document.getElementById("flash");
+const toastEl = document.getElementById("toast");
+const shotsEl = document.getElementById("shots");
+const btnCapture = document.getElementById("btnCapture");
+const btnFlip = document.getElementById("btnFlip");
+const btnStart = document.getElementById("btnStart");
+const fileInput = document.getElementById("file");
+
+let stream = null;
+let facing = "environment";
+let busy = false;
+let shots = [];
+let toastTimer = null;
+
+function setStatus(text, cls) {
+  statusEl.textContent = text;
+  statusEl.className = "badge left" + (cls ? " " + cls : "");
+}
+
+function showToast(text, isErr) {
+  toastEl.textContent = text;
+  toastEl.className = "toast" + (isErr ? " err" : "");
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toastEl.textContent = "";
+  }, 2400);
+}
+
+function syncPreviewFrame() {
+  const width = video.videoWidth;
+  const height = video.videoHeight;
+  if (!width || !height) return;
+  stage.style.setProperty("--frame-aspect", String(width / height));
+  const longest = Math.max(width, height);
+  const scale = longest > MAX_EDGE ? MAX_EDGE / longest : 1;
+  const outW = Math.max(1, Math.round(width * scale));
+  const outH = Math.max(1, Math.round(height * scale));
+  sizeEl.hidden = false;
+  sizeEl.textContent = `${outW}×${outH}`;
+  video.classList.toggle("mirror", facing === "user");
+}
+
+function renderShots() {
+  shotsEl.replaceChildren();
+  for (const shot of shots) {
+    const card = document.createElement("div");
+    card.className = "shot";
+    const img = document.createElement("img");
+    img.src = shot.url;
+    img.alt = shot.filename;
+    img.width = shot.width;
+    img.height = shot.height;
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = `${shot.width}×${shot.height} · ${formatBytes(shot.bytes)}`;
+    card.append(img, meta);
+    shotsEl.append(card);
+  }
+}
+
+async function savePhoto(photo) {
+  const url = triggerDownload(photo.blob, photo.filename);
+  const shot = {
+    url,
+    width: photo.width,
+    height: photo.height,
+    bytes: photo.blob.size,
+    filename: photo.filename,
+  };
+  const next = [shot, ...shots];
+  for (const dropped of next.slice(MAX_SHOTS)) URL.revokeObjectURL(dropped.url);
+  shots = next.slice(0, MAX_SHOTS);
+  renderShots();
+  showToast(`Saved ${photo.width}×${photo.height}`);
+}
+
+function stopStream() {
+  if (stream) {
+    for (const track of stream.getTracks()) track.stop();
+    stream = null;
+  }
+  video.srcObject = null;
+  video.hidden = true;
+  placeholder.hidden = false;
+  sizeEl.hidden = true;
+  btnCapture.disabled = true;
+  btnFlip.disabled = true;
+}
+
+async function startCamera() {
+  if (!window.isSecureContext) {
+    setStatus("Insecure", "insecure");
+    showToast("Camera needs HTTPS.", true);
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setStatus("No camera", "denied");
+    showToast("Camera API unavailable.", true);
+    return;
+  }
+  setStatus("Opening");
+  btnStart.disabled = true;
+  try {
+    stopStream();
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: { ideal: facing },
+        width: { ideal: MAX_EDGE },
+        height: { ideal: MAX_EDGE },
+      },
+    });
+    video.srcObject = stream;
+    video.playsInline = true;
+    await video.play();
+    syncPreviewFrame();
+    video.hidden = false;
+    placeholder.hidden = true;
+    setStatus("Live", "live");
+    btnCapture.disabled = false;
+    btnFlip.disabled = false;
+  } catch (err) {
+    setStatus("Blocked", "denied");
+    showToast(err instanceof Error ? err.message : "Camera blocked", true);
+  } finally {
+    btnStart.disabled = false;
+  }
+}
+
+async function captureLive() {
+  if (busy || video.readyState < 2) return;
+  busy = true;
+  btnCapture.disabled = true;
+  flashEl.classList.add("on");
+  setTimeout(() => flashEl.classList.remove("on"), 90);
+  try {
+    const photo = await encodeFitted(video, video.videoWidth, video.videoHeight);
+    await savePhoto(photo);
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : "Capture failed", true);
+  } finally {
+    busy = false;
+    btnCapture.disabled = !(stream && video.readyState >= 2);
+  }
+}
+
+async function handleFile(file) {
+  if (!file || busy) return;
+  busy = true;
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    try {
+      const photo = await encodeFitted(bitmap, bitmap.width, bitmap.height);
+      await savePhoto(photo);
+    } finally {
+      bitmap.close();
+    }
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : "Upload failed", true);
+  } finally {
+    busy = false;
+    fileInput.value = "";
+  }
+}
+
+btnStart.addEventListener("click", () => {
+  void startCamera();
+});
+btnCapture.addEventListener("click", () => {
+  void captureLive();
+});
+btnFlip.addEventListener("click", () => {
+  facing = facing === "environment" ? "user" : "environment";
+  void startCamera();
+});
+fileInput.addEventListener("change", () => {
+  const file = fileInput.files && fileInput.files[0];
+  if (file) void handleFile(file);
+});
+video.addEventListener("loadedmetadata", syncPreviewFrame);
+
+if (!window.isSecureContext) setStatus("Insecure", "insecure");
+else setStatus("Ready");
+
+  </script>
+</body>
+</html>
