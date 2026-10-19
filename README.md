@@ -11,4 +11,6 @@ Camera page that saves a JPEG whose longest side is at most 1280px. The preview 
 node build.mjs
 ```
 
+Built by grok.
+
 Live site: https://makzan.github.io/snap1280/
