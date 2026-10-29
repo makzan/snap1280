@@ -16,6 +16,7 @@ const flashEl = document.getElementById("flash");
 const toastEl = document.getElementById("toast");
 const shotsEl = document.getElementById("shots");
 const btnCapture = document.getElementById("btnCapture");
+const btnShutter = document.getElementById("btnShutter");
 const btnFlip = document.getElementById("btnFlip");
 const btnStart = document.getElementById("btnStart");
 const fileInput = document.getElementById("file");
@@ -38,6 +39,11 @@ function showToast(text, isErr) {
   toastTimer = setTimeout(() => {
     toastEl.textContent = "";
   }, 2400);
+}
+
+function setCaptureDisabled(disabled) {
+  btnCapture.disabled = disabled;
+  btnShutter.disabled = disabled;
 }
 
 function syncPreviewFrame() {
@@ -97,7 +103,7 @@ function stopStream() {
   video.hidden = true;
   placeholder.hidden = false;
   sizeEl.hidden = true;
-  btnCapture.disabled = true;
+  setCaptureDisabled(true);
   btnFlip.disabled = true;
 }
 
@@ -130,7 +136,7 @@ async function startCamera() {
     video.hidden = false;
     placeholder.hidden = true;
     setStatus("Live", "live");
-    btnCapture.disabled = false;
+    setCaptureDisabled(false);
     btnFlip.disabled = false;
   } catch (err) {
     setStatus("Blocked", "denied");
@@ -143,7 +149,7 @@ async function startCamera() {
 async function captureLive() {
   if (busy || video.readyState < 2) return;
   busy = true;
-  btnCapture.disabled = true;
+  setCaptureDisabled(true);
   flashEl.classList.add("on");
   setTimeout(() => flashEl.classList.remove("on"), 90);
   try {
@@ -153,7 +159,7 @@ async function captureLive() {
     showToast(err instanceof Error ? err.message : "Capture failed", true);
   } finally {
     busy = false;
-    btnCapture.disabled = !(stream && video.readyState >= 2);
+    setCaptureDisabled(!(stream && video.readyState >= 2));
   }
 }
 
@@ -180,6 +186,9 @@ btnStart.addEventListener("click", () => {
   void startCamera();
 });
 btnCapture.addEventListener("click", () => {
+  void captureLive();
+});
+btnShutter.addEventListener("click", () => {
   void captureLive();
 });
 btnFlip.addEventListener("click", () => {
