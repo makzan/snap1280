@@ -120,6 +120,7 @@ async function startCamera() {
       audio: false,
       video: {
         facingMode: { ideal: facing },
+        width: { ideal: MAX_EDGE },
       },
     });
     video.srcObject = stream;
