@@ -145,6 +145,38 @@ button.primary {
   color: #061018;
 }
 
+button.shutter {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  border: 3px solid rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+button.shutter::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+button.shutter:active:not(:disabled) {
+  transform: translateX(-50%) scale(0.94);
+}
+
+button.shutter:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
 .file-btn { display: inline-flex; align-items: center; }
 #file { display: none; }
 
