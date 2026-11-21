@@ -1,6 +1,6 @@
 # Snap1280
 
-Camera page that saves a JPEG whose longest side is at most 1280px. The preview frame uses the same aspect ratio as the photo that is saved.
+Camera page that saves a center-cropped JPEG in Camera 9:16 (720×1280), A4 portrait (905×1280), or Square (1280×1280). The preview frame uses the same aspect ratio and crop as the photo that is saved.
 
 ## Layout
 
