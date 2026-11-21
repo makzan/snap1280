@@ -1,15 +1,23 @@
 export const MAX_EDGE = 1280;
 export const JPEG_QUALITY = 0.9;
+export const PHOTO_PRESETS = {
+  camera: { label: "Camera 9:16", width: 720, height: 1280 },
+  a4: { label: "A4 portrait", width: 905, height: 1280 },
+  square: { label: "Square", width: 1280, height: 1280 },
+};
 
-export function fitMaxEdge(width, height, maxEdge = MAX_EDGE) {
-  if (width <= 0 || height <= 0) throw new Error("Invalid image size");
-  const longest = Math.max(width, height);
-  if (longest <= maxEdge) return { width, height };
-  const scale = maxEdge / longest;
-  return {
-    width: Math.max(1, Math.round(width * scale)),
-    height: Math.max(1, Math.round(height * scale)),
-  };
+export function centerCrop(sourceWidth, sourceHeight, targetWidth, targetHeight) {
+  if (sourceWidth <= 0 || sourceHeight <= 0 || targetWidth <= 0 || targetHeight <= 0) {
+    throw new Error("Invalid image size");
+  }
+  const sourceRatio = sourceWidth / sourceHeight;
+  const targetRatio = targetWidth / targetHeight;
+  if (sourceRatio > targetRatio) {
+    const width = sourceHeight * targetRatio;
+    return { x: (sourceWidth - width) / 2, y: 0, width, height: sourceHeight };
+  }
+  const height = sourceWidth / targetRatio;
+  return { x: 0, y: (sourceHeight - height) / 2, width: sourceWidth, height };
 }
 
 export function photoFilename(date = new Date()) {
@@ -33,18 +41,18 @@ function canvasToJpeg(canvas) {
   });
 }
 
-export async function encodeFitted(source, sourceWidth, sourceHeight) {
-  const { width, height } = fitMaxEdge(sourceWidth, sourceHeight);
+export async function encodeFitted(source, sourceWidth, sourceHeight, preset) {
+  const crop = centerCrop(sourceWidth, sourceHeight, preset.width, preset.height);
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = preset.width;
+  canvas.height = preset.height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas is unavailable");
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(source, 0, 0, sourceWidth, sourceHeight, 0, 0, width, height);
+  ctx.drawImage(source, crop.x, crop.y, crop.width, crop.height, 0, 0, preset.width, preset.height);
   const blob = await canvasToJpeg(canvas);
-  return { blob, width, height, filename: photoFilename() };
+  return { blob, width: preset.width, height: preset.height, filename: photoFilename() };
 }
 
 export function triggerDownload(blob, filename) {
