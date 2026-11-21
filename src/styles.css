@@ -54,8 +54,8 @@ h1 {
 
 .stage {
   position: relative;
-  width: min(100%, calc(70dvh * var(--frame-aspect, 0.75)));
-  aspect-ratio: var(--frame-aspect, 0.75);
+  width: min(100%, calc(70dvh * var(--frame-aspect, 0.5625)));
+  aspect-ratio: var(--frame-aspect, 0.5625);
   background: #000;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -71,7 +71,7 @@ video,
 }
 
 video {
-  object-fit: contain;
+  object-fit: cover;
   background: #000;
 }
 
@@ -125,7 +125,8 @@ video[hidden] { display: none; }
 }
 
 button,
-.file-btn {
+.file-btn,
+select {
   appearance: none;
   border: 1px solid var(--border);
   background: #1c2330;
@@ -135,6 +136,13 @@ button,
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+}
+
+select { appearance: auto; }
+
+.ratio-control {
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 button:disabled { opacity: 0.45; cursor: not-allowed; }

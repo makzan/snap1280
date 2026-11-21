@@ -63,8 +63,8 @@ h1 {
 
 .stage {
   position: relative;
-  width: min(100%, calc(70dvh * var(--frame-aspect, 0.75)));
-  aspect-ratio: var(--frame-aspect, 0.75);
+  width: min(100%, calc(70dvh * var(--frame-aspect, 0.5625)));
+  aspect-ratio: var(--frame-aspect, 0.5625);
   background: #000;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -80,7 +80,7 @@ video,
 }
 
 video {
-  object-fit: contain;
+  object-fit: cover;
   background: #000;
 }
 
@@ -134,7 +134,8 @@ video[hidden] { display: none; }
 }
 
 button,
-.file-btn {
+.file-btn,
+select {
   appearance: none;
   border: 1px solid var(--border);
   background: #1c2330;
@@ -144,6 +145,13 @@ button,
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+}
+
+select { appearance: auto; }
+
+.ratio-control {
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 button:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -263,6 +271,8 @@ a { color: var(--accent); }
     </div>
 
     <div class="bar">
+      <label class="ratio-control" for="ratio">Ratio</label>
+      <select id="ratio" aria-label="Photo aspect ratio"></select>
       <button type="button" class="primary" id="btnCapture" disabled>Capture</button>
       <button type="button" id="btnFlip" disabled>Flip camera</button>
       <button type="button" id="btnStart">Start camera</button>
@@ -279,16 +289,24 @@ a { color: var(--accent); }
   <script>
 const MAX_EDGE = 1280;
 const JPEG_QUALITY = 0.9;
+const PHOTO_PRESETS = {
+  camera: { label: "Camera 9:16", width: 720, height: 1280 },
+  a4: { label: "A4 portrait", width: 905, height: 1280 },
+  square: { label: "Square", width: 1280, height: 1280 },
+};
 
-function fitMaxEdge(width, height, maxEdge = MAX_EDGE) {
-  if (width <= 0 || height <= 0) throw new Error("Invalid image size");
-  const longest = Math.max(width, height);
-  if (longest <= maxEdge) return { width, height };
-  const scale = maxEdge / longest;
-  return {
-    width: Math.max(1, Math.round(width * scale)),
-    height: Math.max(1, Math.round(height * scale)),
-  };
+function centerCrop(sourceWidth, sourceHeight, targetWidth, targetHeight) {
+  if (sourceWidth <= 0 || sourceHeight <= 0 || targetWidth <= 0 || targetHeight <= 0) {
+    throw new Error("Invalid image size");
+  }
+  const sourceRatio = sourceWidth / sourceHeight;
+  const targetRatio = targetWidth / targetHeight;
+  if (sourceRatio > targetRatio) {
+    const width = sourceHeight * targetRatio;
+    return { x: (sourceWidth - width) / 2, y: 0, width, height: sourceHeight };
+  }
+  const height = sourceWidth / targetRatio;
+  return { x: 0, y: (sourceHeight - height) / 2, width: sourceWidth, height };
 }
 
 function photoFilename(date = new Date()) {
@@ -312,18 +330,18 @@ function canvasToJpeg(canvas) {
   });
 }
 
-async function encodeFitted(source, sourceWidth, sourceHeight) {
-  const { width, height } = fitMaxEdge(sourceWidth, sourceHeight);
+async function encodeFitted(source, sourceWidth, sourceHeight, preset) {
+  const crop = centerCrop(sourceWidth, sourceHeight, preset.width, preset.height);
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = preset.width;
+  canvas.height = preset.height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas is unavailable");
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(source, 0, 0, sourceWidth, sourceHeight, 0, 0, width, height);
+  ctx.drawImage(source, crop.x, crop.y, crop.width, crop.height, 0, 0, preset.width, preset.height);
   const blob = await canvasToJpeg(canvas);
-  return { blob, width, height, filename: photoFilename() };
+  return { blob, width: preset.width, height: preset.height, filename: photoFilename() };
 }
 
 function triggerDownload(blob, filename) {
@@ -348,6 +366,7 @@ const sizeEl = document.getElementById("size");
 const flashEl = document.getElementById("flash");
 const toastEl = document.getElementById("toast");
 const shotsEl = document.getElementById("shots");
+const ratioSelect = document.getElementById("ratio");
 const btnCapture = document.getElementById("btnCapture");
 const btnShutter = document.getElementById("btnShutter");
 const btnFlip = document.getElementById("btnFlip");
@@ -356,9 +375,18 @@ const fileInput = document.getElementById("file");
 
 let stream = null;
 let facing = "environment";
+let presetKey = "camera";
 let busy = false;
 let shots = [];
 let toastTimer = null;
+
+for (const [key, preset] of Object.entries(PHOTO_PRESETS)) {
+  const option = document.createElement("option");
+  option.value = key;
+  option.textContent = `${preset.label} — ${preset.width}×${preset.height}`;
+  ratioSelect.append(option);
+}
+ratioSelect.value = presetKey;
 
 function setStatus(text, cls) {
   statusEl.textContent = text;
@@ -380,16 +408,10 @@ function setCaptureDisabled(disabled) {
 }
 
 function syncPreviewFrame() {
-  const width = video.videoWidth;
-  const height = video.videoHeight;
-  if (!width || !height) return;
-  stage.style.setProperty("--frame-aspect", String(width / height));
-  const longest = Math.max(width, height);
-  const scale = longest > MAX_EDGE ? MAX_EDGE / longest : 1;
-  const outW = Math.max(1, Math.round(width * scale));
-  const outH = Math.max(1, Math.round(height * scale));
+  const preset = PHOTO_PRESETS[presetKey];
+  stage.style.setProperty("--frame-aspect", String(preset.width / preset.height));
   sizeEl.hidden = false;
-  sizeEl.textContent = `${outW}×${outH}`;
+  sizeEl.textContent = `${preset.width}×${preset.height}`;
   video.classList.toggle("mirror", facing === "user");
 }
 
@@ -435,7 +457,6 @@ function stopStream() {
   video.srcObject = null;
   video.hidden = true;
   placeholder.hidden = false;
-  sizeEl.hidden = true;
   setCaptureDisabled(true);
   btnFlip.disabled = true;
 }
@@ -486,7 +507,7 @@ async function captureLive() {
   flashEl.classList.add("on");
   setTimeout(() => flashEl.classList.remove("on"), 90);
   try {
-    const photo = await encodeFitted(video, video.videoWidth, video.videoHeight);
+    const photo = await encodeFitted(video, video.videoWidth, video.videoHeight, PHOTO_PRESETS[presetKey]);
     await savePhoto(photo);
   } catch (err) {
     showToast(err instanceof Error ? err.message : "Capture failed", true);
@@ -502,7 +523,7 @@ async function handleFile(file) {
   try {
     const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
     try {
-      const photo = await encodeFitted(bitmap, bitmap.width, bitmap.height);
+      const photo = await encodeFitted(bitmap, bitmap.width, bitmap.height, PHOTO_PRESETS[presetKey]);
       await savePhoto(photo);
     } finally {
       bitmap.close();
@@ -528,12 +549,17 @@ btnFlip.addEventListener("click", () => {
   facing = facing === "environment" ? "user" : "environment";
   void startCamera();
 });
+ratioSelect.addEventListener("change", () => {
+  presetKey = ratioSelect.value;
+  syncPreviewFrame();
+});
 fileInput.addEventListener("change", () => {
   const file = fileInput.files && fileInput.files[0];
   if (file) void handleFile(file);
 });
 video.addEventListener("loadedmetadata", syncPreviewFrame);
 
+syncPreviewFrame();
 if (!window.isSecureContext) setStatus("Insecure", "insecure");
 else setStatus("Ready");
 

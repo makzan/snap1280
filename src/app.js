@@ -1,5 +1,6 @@
 import {
   MAX_EDGE,
+  PHOTO_PRESETS,
   encodeFitted,
   formatBytes,
   triggerDownload,
@@ -15,6 +16,7 @@ const sizeEl = document.getElementById("size");
 const flashEl = document.getElementById("flash");
 const toastEl = document.getElementById("toast");
 const shotsEl = document.getElementById("shots");
+const ratioSelect = document.getElementById("ratio");
 const btnCapture = document.getElementById("btnCapture");
 const btnShutter = document.getElementById("btnShutter");
 const btnFlip = document.getElementById("btnFlip");
@@ -23,9 +25,18 @@ const fileInput = document.getElementById("file");
 
 let stream = null;
 let facing = "environment";
+let presetKey = "camera";
 let busy = false;
 let shots = [];
 let toastTimer = null;
+
+for (const [key, preset] of Object.entries(PHOTO_PRESETS)) {
+  const option = document.createElement("option");
+  option.value = key;
+  option.textContent = `${preset.label} — ${preset.width}×${preset.height}`;
+  ratioSelect.append(option);
+}
+ratioSelect.value = presetKey;
 
 function setStatus(text, cls) {
   statusEl.textContent = text;
@@ -47,16 +58,10 @@ function setCaptureDisabled(disabled) {
 }
 
 function syncPreviewFrame() {
-  const width = video.videoWidth;
-  const height = video.videoHeight;
-  if (!width || !height) return;
-  stage.style.setProperty("--frame-aspect", String(width / height));
-  const longest = Math.max(width, height);
-  const scale = longest > MAX_EDGE ? MAX_EDGE / longest : 1;
-  const outW = Math.max(1, Math.round(width * scale));
-  const outH = Math.max(1, Math.round(height * scale));
+  const preset = PHOTO_PRESETS[presetKey];
+  stage.style.setProperty("--frame-aspect", String(preset.width / preset.height));
   sizeEl.hidden = false;
-  sizeEl.textContent = `${outW}×${outH}`;
+  sizeEl.textContent = `${preset.width}×${preset.height}`;
   video.classList.toggle("mirror", facing === "user");
 }
 
@@ -102,7 +107,6 @@ function stopStream() {
   video.srcObject = null;
   video.hidden = true;
   placeholder.hidden = false;
-  sizeEl.hidden = true;
   setCaptureDisabled(true);
   btnFlip.disabled = true;
 }
@@ -153,7 +157,7 @@ async function captureLive() {
   flashEl.classList.add("on");
   setTimeout(() => flashEl.classList.remove("on"), 90);
   try {
-    const photo = await encodeFitted(video, video.videoWidth, video.videoHeight);
+    const photo = await encodeFitted(video, video.videoWidth, video.videoHeight, PHOTO_PRESETS[presetKey]);
     await savePhoto(photo);
   } catch (err) {
     showToast(err instanceof Error ? err.message : "Capture failed", true);
@@ -169,7 +173,7 @@ async function handleFile(file) {
   try {
     const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
     try {
-      const photo = await encodeFitted(bitmap, bitmap.width, bitmap.height);
+      const photo = await encodeFitted(bitmap, bitmap.width, bitmap.height, PHOTO_PRESETS[presetKey]);
       await savePhoto(photo);
     } finally {
       bitmap.close();
@@ -195,11 +199,16 @@ btnFlip.addEventListener("click", () => {
   facing = facing === "environment" ? "user" : "environment";
   void startCamera();
 });
+ratioSelect.addEventListener("change", () => {
+  presetKey = ratioSelect.value;
+  syncPreviewFrame();
+});
 fileInput.addEventListener("change", () => {
   const file = fileInput.files && fileInput.files[0];
   if (file) void handleFile(file);
 });
 video.addEventListener("loadedmetadata", syncPreviewFrame);
 
+syncPreviewFrame();
 if (!window.isSecureContext) setStatus("Insecure", "insecure");
 else setStatus("Ready");
