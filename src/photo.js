@@ -1,5 +1,4 @@
 export const MIN_EDGE = 1280;
-export const MAX_EDGE = MIN_EDGE;
 export const JPEG_QUALITY = 0.9;
 export const PHOTO_PRESETS = {
   camera: { label: "Camera", width: MIN_EDGE, height: Math.round(MIN_EDGE * 16 / 9) },

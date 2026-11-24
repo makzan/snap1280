@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Snap1280</title>
-  <meta name="description" content="Auto-save JPEG · longest side 1280px. Preview matches the saved photo." />
+  <meta name="description" content="Auto-save JPEG · shortest side 1280px. Preview matches the saved photo." />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <style>
 :root {
@@ -125,6 +125,8 @@ video[hidden] { display: none; }
 .badge.denied,
 .badge.insecure { color: var(--danger); }
 
+.controls { min-width: 0; }
+
 .bar {
   display: flex;
   flex-wrap: wrap;
@@ -163,13 +165,11 @@ button.primary {
 }
 
 button.shutter {
-  position: absolute;
-  z-index: 2;
-  left: 50%;
-  bottom: 16px;
-  transform: translateX(-50%);
+  position: relative;
+  display: block;
   width: 72px;
   height: 72px;
+  margin: 16px auto 0;
   padding: 0;
   border: 3px solid rgba(255, 255, 255, 0.95);
   border-radius: 50%;
@@ -183,10 +183,11 @@ button.shutter::after {
   inset: 6px;
   border-radius: 50%;
   background: #fff;
+  pointer-events: none;
 }
 
 button.shutter:active:not(:disabled) {
-  transform: translateX(-50%) scale(0.94);
+  transform: scale(0.94);
 }
 
 button.shutter:focus-visible {
@@ -243,6 +244,71 @@ footer {
 
 a { color: var(--accent); }
 
+@media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  .wrap {
+    --safe-top: max(8px, env(safe-area-inset-top));
+    --safe-right: max(8px, env(safe-area-inset-right));
+    --safe-bottom: max(8px, env(safe-area-inset-bottom));
+    --safe-left: max(8px, env(safe-area-inset-left));
+    max-width: none;
+    padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+  }
+
+  header,
+  footer { display: none; }
+
+  .camera-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(132px, 180px);
+    gap: 12px;
+    height: calc(100dvh - var(--safe-top) - var(--safe-bottom));
+  }
+
+  .stage-slot {
+    align-items: center;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .stage {
+    width: min(100%, calc((100dvh - var(--safe-top) - var(--safe-bottom)) * var(--frame-aspect)));
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .controls {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  button.shutter { flex: 0 0 72px; }
+
+  .bar {
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .bar button,
+  .bar select,
+  .bar .file-btn {
+    justify-content: center;
+    width: 100%;
+    padding: 9px 8px;
+    text-align: center;
+  }
+
+  .ratio-control { text-align: center; }
+  .toast { text-align: center; }
+  .shots { margin-top: 16px; }
+}
+
   </style>
 </head>
 <body>
@@ -250,36 +316,40 @@ a { color: var(--accent); }
     <header>
       <div>
         <h1>Snap1280</h1>
-        <p class="tagline">Auto-save JPEG · longest side 1280px</p>
+        <p class="tagline">Auto-save JPEG · shortest side 1280px</p>
       </div>
     </header>
 
-    <div class="stage-slot">
-      <div class="stage" id="stage">
-        <div class="placeholder" id="placeholder">
-          <div>
-            <div>Camera preview</div>
-            <div>Allow camera, or upload an image</div>
+    <div class="camera-layout">
+      <div class="stage-slot">
+        <div class="stage" id="stage">
+          <div class="placeholder" id="placeholder">
+            <div>
+              <div>Camera preview</div>
+              <div>Allow camera, or upload an image</div>
+            </div>
           </div>
+          <video id="video" playsinline muted autoplay hidden></video>
+          <div class="flash" id="flash"></div>
+          <div class="badge left" id="status">Idle</div>
+          <div class="badge right" id="size" hidden></div>
         </div>
-        <video id="video" playsinline muted autoplay hidden></video>
-        <div class="flash" id="flash"></div>
-        <div class="badge left" id="status">Idle</div>
-        <div class="badge right" id="size" hidden></div>
+      </div>
+
+      <div class="controls">
         <button type="button" class="shutter" id="btnShutter" aria-label="Capture photo" disabled></button>
+        <div class="bar">
+          <label class="ratio-control" for="ratio">Ratio</label>
+          <select id="ratio" aria-label="Photo aspect ratio"></select>
+          <button type="button" class="primary" id="btnCapture" disabled>Capture</button>
+          <button type="button" id="btnFlip" disabled>Flip camera</button>
+          <button type="button" id="btnStart">Start camera</button>
+          <label class="file-btn" for="file">Upload image</label>
+          <input type="file" id="file" accept="image/*" />
+        </div>
+        <div class="toast" id="toast" aria-live="polite"></div>
       </div>
     </div>
-
-    <div class="bar">
-      <label class="ratio-control" for="ratio">Ratio</label>
-      <select id="ratio" aria-label="Photo aspect ratio"></select>
-      <button type="button" class="primary" id="btnCapture" disabled>Capture</button>
-      <button type="button" id="btnFlip" disabled>Flip camera</button>
-      <button type="button" id="btnStart">Start camera</button>
-      <label class="file-btn" for="file">Upload image</label>
-      <input type="file" id="file" accept="image/*" />
-    </div>
-    <div class="toast" id="toast" aria-live="polite"></div>
     <div class="shots" id="shots"></div>
     <footer>
       Preview frame matches the saved JPEG.
@@ -287,13 +357,25 @@ a { color: var(--accent); }
     </footer>
   </div>
   <script>
-const MAX_EDGE = 1280;
+const MIN_EDGE = 1280;
 const JPEG_QUALITY = 0.9;
 const PHOTO_PRESETS = {
-  camera: { label: "Camera 9:16", width: 720, height: 1280 },
-  a4: { label: "A4 portrait", width: 905, height: 1280 },
-  square: { label: "Square", width: 1280, height: 1280 },
+  camera: { label: "Camera", width: MIN_EDGE, height: Math.round(MIN_EDGE * 16 / 9) },
+  a4: { label: "A4", width: MIN_EDGE, height: Math.round(MIN_EDGE * 1280 / 905) },
+  square: { label: "Square", width: MIN_EDGE, height: MIN_EDGE },
 };
+
+function resolvePreset(key, landscape = false) {
+  if (!Object.hasOwn(PHOTO_PRESETS, key)) throw new Error("Unknown photo preset");
+  const preset = PHOTO_PRESETS[key];
+  const square = preset.width === preset.height;
+  return {
+    ...preset,
+    label: square ? preset.label : `${preset.label} ${landscape ? "landscape" : "portrait"}`,
+    width: landscape ? preset.height : preset.width,
+    height: landscape ? preset.width : preset.height,
+  };
+}
 
 function centerCrop(sourceWidth, sourceHeight, targetWidth, targetHeight) {
   if (sourceWidth <= 0 || sourceHeight <= 0 || targetWidth <= 0 || targetHeight <= 0) {
@@ -356,6 +438,8 @@ function triggerDownload(blob, filename) {
   return url;
 }
 
+const LANDSCAPE_QUERY = "(orientation: landscape) and (max-height: 600px) and (pointer: coarse)";
+const landscapeMedia = window.matchMedia(LANDSCAPE_QUERY);
 const MAX_SHOTS = 8;
 
 const stage = document.getElementById("stage");
@@ -380,13 +464,21 @@ let busy = false;
 let shots = [];
 let toastTimer = null;
 
-for (const [key, preset] of Object.entries(PHOTO_PRESETS)) {
-  const option = document.createElement("option");
-  option.value = key;
-  option.textContent = `${preset.label} — ${preset.width}×${preset.height}`;
-  ratioSelect.append(option);
+function currentPreset() {
+  return resolvePreset(presetKey, landscapeMedia.matches);
 }
-ratioSelect.value = presetKey;
+
+function renderPresetOptions() {
+  ratioSelect.replaceChildren();
+  for (const key of Object.keys(PHOTO_PRESETS)) {
+    const preset = resolvePreset(key, landscapeMedia.matches);
+    const option = document.createElement("option");
+    option.value = key;
+    option.textContent = `${preset.label} — ${preset.width}×${preset.height}`;
+    ratioSelect.append(option);
+  }
+  ratioSelect.value = presetKey;
+}
 
 function setStatus(text, cls) {
   statusEl.textContent = text;
@@ -408,7 +500,7 @@ function setCaptureDisabled(disabled) {
 }
 
 function syncPreviewFrame() {
-  const preset = PHOTO_PRESETS[presetKey];
+  const preset = currentPreset();
   stage.style.setProperty("--frame-aspect", String(preset.width / preset.height));
   sizeEl.hidden = false;
   sizeEl.textContent = `${preset.width}×${preset.height}`;
@@ -480,7 +572,7 @@ async function startCamera() {
       audio: false,
       video: {
         facingMode: { ideal: facing },
-        width: { ideal: MAX_EDGE },
+        width: { ideal: MIN_EDGE * 2 },
       },
     });
     video.srcObject = stream;
@@ -502,12 +594,13 @@ async function startCamera() {
 
 async function captureLive() {
   if (busy || video.readyState < 2) return;
+  const preset = currentPreset();
   busy = true;
   setCaptureDisabled(true);
   flashEl.classList.add("on");
   setTimeout(() => flashEl.classList.remove("on"), 90);
   try {
-    const photo = await encodeFitted(video, video.videoWidth, video.videoHeight, PHOTO_PRESETS[presetKey]);
+    const photo = await encodeFitted(video, video.videoWidth, video.videoHeight, preset);
     await savePhoto(photo);
   } catch (err) {
     showToast(err instanceof Error ? err.message : "Capture failed", true);
@@ -519,11 +612,12 @@ async function captureLive() {
 
 async function handleFile(file) {
   if (!file || busy) return;
+  const preset = currentPreset();
   busy = true;
   try {
     const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
     try {
-      const photo = await encodeFitted(bitmap, bitmap.width, bitmap.height, PHOTO_PRESETS[presetKey]);
+      const photo = await encodeFitted(bitmap, bitmap.width, bitmap.height, preset);
       await savePhoto(photo);
     } finally {
       bitmap.close();
@@ -536,6 +630,10 @@ async function handleFile(file) {
   }
 }
 
+landscapeMedia.addEventListener("change", () => {
+  renderPresetOptions();
+  syncPreviewFrame();
+});
 btnStart.addEventListener("click", () => {
   void startCamera();
 });
@@ -559,6 +657,7 @@ fileInput.addEventListener("change", () => {
 });
 video.addEventListener("loadedmetadata", syncPreviewFrame);
 
+renderPresetOptions();
 syncPreviewFrame();
 if (!window.isSecureContext) setStatus("Insecure", "insecure");
 else setStatus("Ready");

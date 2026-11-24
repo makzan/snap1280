@@ -1,6 +1,6 @@
 # Snap1280
 
-Camera page that saves a center-cropped JPEG in Camera 9:16 (720×1280), A4 portrait (905×1280), or Square (1280×1280). The preview frame uses the same aspect ratio and crop as the photo that is saved.
+Camera page that saves a center-cropped JPEG with a shortest edge of 1280px. Camera outputs 1280×2276 portrait or 2276×1280 landscape, A4 outputs 1280×1810 portrait or 1810×1280 landscape, and Square remains 1280×1280. On compact touch devices, rotating to landscape moves controls to the right of the preview and saves a landscape photo; the preview frame uses the same aspect ratio and crop as the saved JPEG.
 
 ## Layout
 
