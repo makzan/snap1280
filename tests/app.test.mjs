@@ -72,10 +72,10 @@ await import("../src/app.js");
 test("selector, preview, and badge share the selected preset", async () => {
   assert.deepEqual(elements.ratio.children.map((option) => option.value), ["camera", "a4", "square"]);
   assert.equal(elements.ratio.value, "camera");
-  assert.equal(elements.stage.style.values.get("--frame-aspect"), String(720 / 1280));
-  assert.equal(elements.size.textContent, "720×1280");
+  assert.equal(elements.stage.style.values.get("--frame-aspect"), String(1280 / 2276));
+  assert.equal(elements.size.textContent, "1280×2276");
 
-  for (const [key, width, height] of [["a4", 905, 1280], ["square", 1280, 1280], ["camera", 720, 1280]]) {
+  for (const [key, width, height] of [["a4", 1280, 1810], ["square", 1280, 1280], ["camera", 1280, 2276]]) {
     elements.ratio.value = key;
     await elements.ratio.dispatch("change");
     assert.equal(elements.stage.style.values.get("--frame-aspect"), String(width / height));
@@ -85,7 +85,7 @@ test("selector, preview, and badge share the selected preset", async () => {
 
 test("uploads use the selected dimensions for landscape, portrait, and square sources", async () => {
   const sources = { camera: [1600, 900], a4: [900, 1600], square: [1000, 1000] };
-  const expected = { camera: [720, 1280], a4: [905, 1280], square: [1280, 1280] };
+  const expected = { camera: [1280, 2276], a4: [1280, 1810], square: [1280, 1280] };
   globalThis.createImageBitmap = async () => {
     const [width, height] = sources[elements.ratio.value];
     return { width, height, close() {} };
@@ -134,7 +134,7 @@ test("camera, flip, and both shutter controls preserve the selected output", asy
 
   for (const [key, button, width, height] of [
     ["square", elements.btnCapture, 1280, 1280],
-    ["a4", elements.btnShutter, 905, 1280],
+    ["a4", elements.btnShutter, 1280, 1810],
   ]) {
     elements.ratio.value = key;
     await elements.ratio.dispatch("change");

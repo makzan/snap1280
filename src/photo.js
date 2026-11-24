@@ -1,10 +1,23 @@
-export const MAX_EDGE = 1280;
+export const MIN_EDGE = 1280;
+export const MAX_EDGE = MIN_EDGE;
 export const JPEG_QUALITY = 0.9;
 export const PHOTO_PRESETS = {
-  camera: { label: "Camera 9:16", width: 720, height: 1280 },
-  a4: { label: "A4 portrait", width: 905, height: 1280 },
-  square: { label: "Square", width: 1280, height: 1280 },
+  camera: { label: "Camera", width: MIN_EDGE, height: Math.round(MIN_EDGE * 16 / 9) },
+  a4: { label: "A4", width: MIN_EDGE, height: Math.round(MIN_EDGE * 1280 / 905) },
+  square: { label: "Square", width: MIN_EDGE, height: MIN_EDGE },
 };
+
+export function resolvePreset(key, landscape = false) {
+  if (!Object.hasOwn(PHOTO_PRESETS, key)) throw new Error("Unknown photo preset");
+  const preset = PHOTO_PRESETS[key];
+  const square = preset.width === preset.height;
+  return {
+    ...preset,
+    label: square ? preset.label : `${preset.label} ${landscape ? "landscape" : "portrait"}`,
+    width: landscape ? preset.height : preset.width,
+    height: landscape ? preset.width : preset.height,
+  };
+}
 
 export function centerCrop(sourceWidth, sourceHeight, targetWidth, targetHeight) {
   if (sourceWidth <= 0 || sourceHeight <= 0 || targetWidth <= 0 || targetHeight <= 0) {
