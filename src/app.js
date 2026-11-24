@@ -1,11 +1,14 @@
 import {
-  MAX_EDGE,
+  MIN_EDGE,
   PHOTO_PRESETS,
   encodeFitted,
   formatBytes,
+  resolvePreset,
   triggerDownload,
 } from "./photo.js";
 
+const LANDSCAPE_QUERY = "(orientation: landscape) and (max-height: 600px) and (pointer: coarse)";
+const landscapeMedia = window.matchMedia(LANDSCAPE_QUERY);
 const MAX_SHOTS = 8;
 
 const stage = document.getElementById("stage");
@@ -30,13 +33,21 @@ let busy = false;
 let shots = [];
 let toastTimer = null;
 
-for (const [key, preset] of Object.entries(PHOTO_PRESETS)) {
-  const option = document.createElement("option");
-  option.value = key;
-  option.textContent = `${preset.label} — ${preset.width}×${preset.height}`;
-  ratioSelect.append(option);
+function currentPreset() {
+  return resolvePreset(presetKey, landscapeMedia.matches);
 }
-ratioSelect.value = presetKey;
+
+function renderPresetOptions() {
+  ratioSelect.replaceChildren();
+  for (const key of Object.keys(PHOTO_PRESETS)) {
+    const preset = resolvePreset(key, landscapeMedia.matches);
+    const option = document.createElement("option");
+    option.value = key;
+    option.textContent = `${preset.label} — ${preset.width}×${preset.height}`;
+    ratioSelect.append(option);
+  }
+  ratioSelect.value = presetKey;
+}
 
 function setStatus(text, cls) {
   statusEl.textContent = text;
@@ -58,7 +69,7 @@ function setCaptureDisabled(disabled) {
 }
 
 function syncPreviewFrame() {
-  const preset = PHOTO_PRESETS[presetKey];
+  const preset = currentPreset();
   stage.style.setProperty("--frame-aspect", String(preset.width / preset.height));
   sizeEl.hidden = false;
   sizeEl.textContent = `${preset.width}×${preset.height}`;
@@ -130,7 +141,7 @@ async function startCamera() {
       audio: false,
       video: {
         facingMode: { ideal: facing },
-        width: { ideal: MAX_EDGE },
+        width: { ideal: MIN_EDGE * 2 },
       },
     });
     video.srcObject = stream;
@@ -152,12 +163,13 @@ async function startCamera() {
 
 async function captureLive() {
   if (busy || video.readyState < 2) return;
+  const preset = currentPreset();
   busy = true;
   setCaptureDisabled(true);
   flashEl.classList.add("on");
   setTimeout(() => flashEl.classList.remove("on"), 90);
   try {
-    const photo = await encodeFitted(video, video.videoWidth, video.videoHeight, PHOTO_PRESETS[presetKey]);
+    const photo = await encodeFitted(video, video.videoWidth, video.videoHeight, preset);
     await savePhoto(photo);
   } catch (err) {
     showToast(err instanceof Error ? err.message : "Capture failed", true);
@@ -169,11 +181,12 @@ async function captureLive() {
 
 async function handleFile(file) {
   if (!file || busy) return;
+  const preset = currentPreset();
   busy = true;
   try {
     const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
     try {
-      const photo = await encodeFitted(bitmap, bitmap.width, bitmap.height, PHOTO_PRESETS[presetKey]);
+      const photo = await encodeFitted(bitmap, bitmap.width, bitmap.height, preset);
       await savePhoto(photo);
     } finally {
       bitmap.close();
@@ -186,6 +199,10 @@ async function handleFile(file) {
   }
 }
 
+landscapeMedia.addEventListener("change", () => {
+  renderPresetOptions();
+  syncPreviewFrame();
+});
 btnStart.addEventListener("click", () => {
   void startCamera();
 });
@@ -209,6 +226,7 @@ fileInput.addEventListener("change", () => {
 });
 video.addEventListener("loadedmetadata", syncPreviewFrame);
 
+renderPresetOptions();
 syncPreviewFrame();
 if (!window.isSecureContext) setStatus("Insecure", "insecure");
 else setStatus("Ready");

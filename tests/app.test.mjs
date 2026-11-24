@@ -65,22 +65,49 @@ globalThis.document = {
     return canvas;
   },
 };
-globalThis.window = { isSecureContext: true };
+const mediaListeners = new Set();
+const landscapeMedia = {
+  matches: false,
+  addEventListener(type, listener) {
+    if (type === "change") mediaListeners.add(listener);
+  },
+};
+globalThis.window = {
+  isSecureContext: true,
+  matchMedia(query) {
+    assert.equal(query, "(orientation: landscape) and (max-height: 600px) and (pointer: coarse)");
+    return landscapeMedia;
+  },
+};
+async function setLandscape(matches) {
+  landscapeMedia.matches = matches;
+  for (const listener of mediaListeners) listener({ matches });
+  await new Promise((resolve) => setImmediate(resolve));
+}
 
 await import("../src/app.js");
 
-test("selector, preview, and badge share the selected preset", async () => {
+test("selector, preview, and badge share the selected preset and orientation", async () => {
   assert.deepEqual(elements.ratio.children.map((option) => option.value), ["camera", "a4", "square"]);
   assert.equal(elements.ratio.value, "camera");
   assert.equal(elements.stage.style.values.get("--frame-aspect"), String(1280 / 2276));
   assert.equal(elements.size.textContent, "1280×2276");
 
-  for (const [key, width, height] of [["a4", 1280, 1810], ["square", 1280, 1280], ["camera", 1280, 2276]]) {
-    elements.ratio.value = key;
-    await elements.ratio.dispatch("change");
-    assert.equal(elements.stage.style.values.get("--frame-aspect"), String(width / height));
-    assert.equal(elements.size.textContent, `${width}×${height}`);
-  }
+  await setLandscape(true);
+  assert.equal(elements.stage.style.values.get("--frame-aspect"), String(2276 / 1280));
+  assert.equal(elements.size.textContent, "2276×1280");
+  assert.equal(elements.ratio.children[0].textContent, "Camera landscape — 2276×1280");
+
+  elements.ratio.value = "a4";
+  await elements.ratio.dispatch("change");
+  assert.equal(elements.stage.style.values.get("--frame-aspect"), String(1810 / 1280));
+  assert.equal(elements.size.textContent, "1810×1280");
+
+  elements.ratio.value = "square";
+  await elements.ratio.dispatch("change");
+  assert.equal(elements.stage.style.values.get("--frame-aspect"), "1");
+  assert.equal(elements.size.textContent, "1280×1280");
+  await setLandscape(false);
 });
 
 test("uploads use the selected dimensions for landscape, portrait, and square sources", async () => {
@@ -101,6 +128,15 @@ test("uploads use the selected dimensions for landscape, portrait, and square so
     assert.equal(elements.shots.children[0].children[1].textContent.startsWith(`${expected[key][0]}×${expected[key][1]}`), true);
   }
   assert.equal(downloads.length, 3);
+
+  await setLandscape(true);
+  elements.ratio.value = "camera";
+  await elements.ratio.dispatch("change");
+  elements.file.files = [new Blob(["image"], { type: "image/png" })];
+  await elements.file.dispatch("change");
+  assert.deepEqual([canvases.at(-1).width, canvases.at(-1).height], [2276, 1280]);
+  assert.equal(downloads.length, 4);
+  await setLandscape(false);
 });
 
 test("camera, flip, and both shutter controls preserve the selected output", async () => {
@@ -112,6 +148,7 @@ test("camera, flip, and both shutter controls preserve the selected output", asy
       mediaDevices: {
         async getUserMedia(constraints) {
           facingModes.push(constraints.video.facingMode.ideal);
+          assert.equal(constraints.video.width.ideal, 2560);
           return stream;
         },
       },
@@ -141,5 +178,14 @@ test("camera, flip, and both shutter controls preserve the selected output", asy
     await button.dispatch("click");
     assert.deepEqual([canvases.at(-1).width, canvases.at(-1).height], [width, height]);
   }
-  assert.equal(downloads.length, 5);
+
+  await setLandscape(true);
+  elements.ratio.value = "camera";
+  await elements.ratio.dispatch("change");
+  await elements.btnShutter.dispatch("click");
+  assert.deepEqual([canvases.at(-1).width, canvases.at(-1).height], [2276, 1280]);
+  assert.equal(elements.shots.children[0].children[1].textContent.startsWith("2276×1280"), true);
+  assert.deepEqual(facingModes, ["environment", "user"]);
+  assert.equal(downloads.length, 7);
+  await setLandscape(false);
 });
