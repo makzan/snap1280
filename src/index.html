@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Snap1280</title>
-  <meta name="description" content="Auto-save JPEG · longest side 1280px. Preview matches the saved photo." />
+  <meta name="description" content="Auto-save JPEG · shortest side 1280px. Preview matches the saved photo." />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -13,36 +13,40 @@
     <header>
       <div>
         <h1>Snap1280</h1>
-        <p class="tagline">Auto-save JPEG · longest side 1280px</p>
+        <p class="tagline">Auto-save JPEG · shortest side 1280px</p>
       </div>
     </header>
 
-    <div class="stage-slot">
-      <div class="stage" id="stage">
-        <div class="placeholder" id="placeholder">
-          <div>
-            <div>Camera preview</div>
-            <div>Allow camera, or upload an image</div>
+    <div class="camera-layout">
+      <div class="stage-slot">
+        <div class="stage" id="stage">
+          <div class="placeholder" id="placeholder">
+            <div>
+              <div>Camera preview</div>
+              <div>Allow camera, or upload an image</div>
+            </div>
           </div>
+          <video id="video" playsinline muted autoplay hidden></video>
+          <div class="flash" id="flash"></div>
+          <div class="badge left" id="status">Idle</div>
+          <div class="badge right" id="size" hidden></div>
         </div>
-        <video id="video" playsinline muted autoplay hidden></video>
-        <div class="flash" id="flash"></div>
-        <div class="badge left" id="status">Idle</div>
-        <div class="badge right" id="size" hidden></div>
+      </div>
+
+      <div class="controls">
         <button type="button" class="shutter" id="btnShutter" aria-label="Capture photo" disabled></button>
+        <div class="bar">
+          <label class="ratio-control" for="ratio">Ratio</label>
+          <select id="ratio" aria-label="Photo aspect ratio"></select>
+          <button type="button" class="primary" id="btnCapture" disabled>Capture</button>
+          <button type="button" id="btnFlip" disabled>Flip camera</button>
+          <button type="button" id="btnStart">Start camera</button>
+          <label class="file-btn" for="file">Upload image</label>
+          <input type="file" id="file" accept="image/*" />
+        </div>
+        <div class="toast" id="toast" aria-live="polite"></div>
       </div>
     </div>
-
-    <div class="bar">
-      <label class="ratio-control" for="ratio">Ratio</label>
-      <select id="ratio" aria-label="Photo aspect ratio"></select>
-      <button type="button" class="primary" id="btnCapture" disabled>Capture</button>
-      <button type="button" id="btnFlip" disabled>Flip camera</button>
-      <button type="button" id="btnStart">Start camera</button>
-      <label class="file-btn" for="file">Upload image</label>
-      <input type="file" id="file" accept="image/*" />
-    </div>
-    <div class="toast" id="toast" aria-live="polite"></div>
     <div class="shots" id="shots"></div>
     <footer>
       Preview frame matches the saved JPEG.
